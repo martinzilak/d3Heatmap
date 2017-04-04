@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>Heatmap</title>
     <script type="text/javascript" src="js/d3.v3.js"></script>
+    <script type="text/javascript" src="js/string-format.js"></script>
     <script type="text/javascript" src="mock/parsed.js"></script>
     <script type="text/javascript" src="js/heatmap.js"></script>
 </head>
@@ -13,7 +14,12 @@
 <div id="chart" style='overflow:auto; width:1400px; height:1300px;'></div>
 
 <script type="text/javascript">
-    initHeatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "sumOfFlows"}, {scaleType: SCALE_TYPES.log, parentElement: "chart"});
+    var tooltip = {
+        format: "IP: 192.168.{0}.{1}\nsum of flows: {2}\ndocument count: {3}",
+        values: ["thirdBlock", "fourthBlock", "sumOfFlows", "docCount"]
+    };
+
+    initHeatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "sumOfFlows"}, {axisRange: {x: [100, 255], y: [0, 100]}, cellRange: {x: [150, 200], y: [30, 70]}, tooltipText: tooltip, scaleType: SCALE_TYPES.log, parentElement: "chart"});
 </script>
 
 </body>

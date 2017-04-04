@@ -10,12 +10,24 @@ const DEFAULT_VALUES = {
     marginLeft: 70,
     showLegend: true,
     showGrid: true,
-    legendSteps: 10,
+    legendSteps: 12,
     cellSize: 5,
     colorMinimum: "#0f0",
     colorMaximum: "#f00",
     parentElement: "#chart",
-    scaleType: SCALE_TYPES.linear
+    scaleType: SCALE_TYPES.linear,
+    tooltipText: {
+        format: "",
+        values: []
+    },
+    axisRange: { //only works if the axis labels are whole numbers, use with precaution
+        x: [-Infinity, Infinity],
+        y: [-Infinity, Infinity]
+    },
+    cellRange: { //only works if the axis labels are whole numbers, use with precaution
+        x: [-Infinity, Infinity],
+        y: [-Infinity, Infinity]
+    }
 };
 
 const DEFAULT_STYLE = {
@@ -29,7 +41,7 @@ const DEFAULT_STYLE = {
             "stroke-width": "1px"
         },
         text: {
-            "font-size": "16pt",
+            "font-size": "10pt",
             "fill": "#000"
         }
     },
@@ -94,12 +106,17 @@ var yAxisLabelStrings, xAxisLabelStrings, originalYAxisLabelStrings, originalXAx
 var sortOrder;
 var colors;
 var scaleType;
+var tooltipText;
+var axisRange, cellRange;
 var zoom;
 
 var style;
 
 var initHeatmap = function(json, fields, options, styles) {
     const defaultOptions = Object.assign({}, DEFAULT_VALUES);
+
+    //TODO: check option corectness
+
     const parameters = Object.assign(defaultOptions, options);
 
     const defaultStyle = Object.assign({}, DEFAULT_STYLE);
@@ -117,12 +134,15 @@ var initHeatmap = function(json, fields, options, styles) {
     showGrid = parameters.showGrid;
     legendSteps = parameters.legendSteps;
     cellSize = parameters.cellSize;
-    legendElementSize = {width: 2 * cellSize * 10, height: cellSize * 5};
-    legendOffset = cellSize * 4;
+    legendElementSize = {width: cellSize * 10, height: cellSize * 3};
+    legendOffset = cellSize * 2.5;
     legendTextOffset = legendOffset * 2 + legendElementSize.height;
     sortOrder = {xAxis: -1, yAxis: -1};
-    colors = {min: parameters.colorMinimum, max: parameters.colorMaximum};
+    colors = {min: addHash(parameters.colorMinimum), max: addHash(parameters.colorMaximum)};
     scaleType = parameters.scaleType;
+    tooltipText = {format: parameters.tooltipText.format, values: parameters.tooltipText.values};
+    axisRange = {x: parameters.axisRange.x, y: parameters.axisRange.y};
+    cellRange = {x: parameters.cellRange.x, y: parameters.cellRange.y};
     zoom = d3.behavior.zoom();
 
     margin.bottom += (showLegend ? (legendElementSize.height + legendOffset + cellSize) : 0);
@@ -171,12 +191,28 @@ var setColorScheme = function(minColor, maxColor) {
 }
 
 var draw = function(data, parentElement) {
-    yAxisLabelStrings = d3.map(data, function (d) {
-        return d[yColumn];
-    }).keys();
-    xAxisLabelStrings = d3.map(data, function (d) {
-        return d[xColumn];
-    }).keys();
+    if(axisRange.y[0] === -Infinity && axisRange.y[1] === Infinity) {
+        yAxisLabelStrings = d3.map(data, function (d) {
+            return d[yColumn];
+        }).keys();
+    } else {
+        yAxisLabelStrings = [];
+        for (var i = axisRange.y[0]; i <= axisRange.y[1]; i++) {
+            yAxisLabelStrings.push("" + i);
+        }
+    }
+
+    if(axisRange.x[0] === -Infinity && axisRange.x[1] === Infinity) {
+        xAxisLabelStrings = d3.map(data, function (d) {
+            return d[xColumn];
+        }).keys();
+    } else {
+        xAxisLabelStrings = [];
+        for (var i = axisRange.x[0]; i <= axisRange.x[1]; i++) {
+            xAxisLabelStrings.push("" + i);
+        }
+    }
+
     originalYAxisLabelStrings = yAxisLabelStrings;
     originalXAxisLabelStrings = xAxisLabelStrings;
 
@@ -196,7 +232,9 @@ var draw = function(data, parentElement) {
         ;
 
     var colorScale = scaleType
-            .domain(d3.extent(data, function (d) {
+            .domain(d3.extent(data.filter(function(x) {
+                return isInRange(x);
+            }), function (d) {
                 return d[value];
             }))
             .interpolate(d3.interpolateHcl)
@@ -346,7 +384,9 @@ var draw = function(data, parentElement) {
     heatmap.append("g")
         .attr("id", "cells")
         .selectAll(".cell")
-        .data(data)
+        .data(data.filter(function(x) {
+            return isInRange(x);
+        }))
         .enter()
         .append("rect")
         .attr("x", function (d) {
@@ -379,7 +419,7 @@ var draw = function(data, parentElement) {
                 .style("left", (d3.event.pageX + 10) + "px")
                 .style("top", (d3.event.pageY - 10) + "px")
                 .select("#value")
-                .text(tooltipText(d));
+                .text(generateTooltip(d));
 
             //show the tooltip
             d3.select("#tooltip").style("display", "initial");
@@ -642,12 +682,20 @@ var range = function(start, end, steps) {
     return a;
 }
 
-var tooltipText = function(d) {
-    var headers = arrayDifference(Object.getOwnPropertyNames(data[0]), [xColumn, yColumn, value]);
-    var s = "x: " + d[xColumn] + ", y: " + d[yColumn] + "\n" + value + ": " + d[value];
+var generateTooltip = function(d) {
+    var s = "";
 
-    for(var i = 0; i < headers.length; i++) {
-        s += "\n" + headers[i] + ": " + d[headers[i]];
+    if(tooltipText.values.length <= 0) {
+        var headers = arrayDifference(Object.getOwnPropertyNames(data[0]), [xColumn, yColumn, value]);
+        s += format("x: {0}, y: {1}\n{2}: {3}", d[xColumn], d[yColumn], value, d[value]);
+
+        for(var i = 0; i < headers.length; i++) {
+            s += format("\n{0}: {1}", headers[i], d[headers[i]]);
+        }
+    } else {
+        var v = tooltipText.values.map(function(x) {return d[x]});
+        v.unshift(tooltipText.format);
+        s += format.apply(null, v);
     }
 
     return s;
@@ -655,4 +703,18 @@ var tooltipText = function(d) {
 
 var addHash = function(d) {
     return (d.lastIndexOf("#", 0) === 0) ? d : ("#" + d);
+}
+
+Number.prototype.between = function(a, b, inclusive) {
+    var min = Math.min(a, b),
+        max = Math.max(a, b);
+
+    return inclusive ? this >= min && this <= max : this > min && this < max;
+}
+
+var isInRange = function(x) {
+    return  (+x[xColumn]).between(axisRange.x[0], axisRange.x[1], true) &&
+            (+x[xColumn]).between(cellRange.x[0], cellRange.x[1], true) &&
+            (+x[yColumn]).between(axisRange.y[0], axisRange.y[1], true) &&
+            (+x[yColumn]).between(cellRange.y[0], cellRange.y[1], true);
 }
