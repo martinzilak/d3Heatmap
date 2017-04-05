@@ -6,8 +6,9 @@
     <title>Heatmap</title>
     <script type="text/javascript" src="js/d3.v3.js"></script>
     <script type="text/javascript" src="js/string-format.js"></script>
+    <script type="text/javascript" src="js/parseCIDRRange.js"></script>
     <script type="text/javascript" src="mock/parsed.js"></script>
-    <script type="text/javascript" src="js/heatmap.js"></script>
+    <script type="text/javascript" src="js/d3heatmap.js"></script>
 </head>
 
 <body>
@@ -19,7 +20,7 @@
         values: ["thirdBlock", "fourthBlock", "sumOfFlows", "docCount"]
     };
 
-    initHeatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "sumOfFlows"}, {axisRange: {x: [100, 255], y: [0, 100]}, cellRange: {x: [150, 200], y: [30, 70]}, tooltipText: tooltip, scaleType: SCALE_TYPES.log, parentElement: "chart"});
+    initHeatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "docCount"}, {axisRange: {x: [0, 150], y: [0, 255]}, cidr: "192.168.0.0/22", tooltipText: tooltip, scaleType: SCALE_TYPES.linear, parentElement: "chart"});
 </script>
 
 </body>

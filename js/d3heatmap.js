@@ -27,7 +27,8 @@ const DEFAULT_VALUES = {
     cellRange: { //only works if the axis labels are whole numbers, use with precaution
         x: [-Infinity, Infinity],
         y: [-Infinity, Infinity]
-    }
+    },
+    cidr: ""
 };
 
 const DEFAULT_STYLE = {
@@ -108,6 +109,7 @@ var colors;
 var scaleType;
 var tooltipText;
 var axisRange, cellRange;
+var cidr;
 var zoom;
 
 var style;
@@ -143,6 +145,7 @@ var initHeatmap = function(json, fields, options, styles) {
     tooltipText = {format: parameters.tooltipText.format, values: parameters.tooltipText.values};
     axisRange = {x: parameters.axisRange.x, y: parameters.axisRange.y};
     cellRange = {x: parameters.cellRange.x, y: parameters.cellRange.y};
+    cidr = parameters.cidr;
     zoom = d3.behavior.zoom();
 
     margin.bottom += (showLegend ? (legendElementSize.height + legendOffset + cellSize) : 0);
@@ -191,6 +194,15 @@ var setColorScheme = function(minColor, maxColor) {
 }
 
 var draw = function(data, parentElement) {
+    if(!(cidr.length === 0)) {
+        var c = parseCIDR(cidr);
+        var c0 = c[0].split(".");
+        var c1 = c[1].split(".");
+
+        cellRange.x = [c0[2], c1[2]];
+        cellRange.y = [c0[3], c1[3]];
+    }
+
     if(axisRange.y[0] === -Infinity && axisRange.y[1] === Infinity) {
         yAxisLabelStrings = d3.map(data, function (d) {
             return d[yColumn];
