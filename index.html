@@ -12,7 +12,8 @@
 </head>
 
 <body>
-<div id="chart" style='overflow:auto; width:1400px; height:1300px;'></div>
+<div id="chart1" style='overflow:auto; width:1400px; height:1300px;'></div>
+<div id="chart2" style='overflow:auto; width:1400px; height:1300px;'></div>
 
 <script type="text/javascript">
     var tooltip = {
@@ -20,7 +21,8 @@
         values: ["thirdBlock", "fourthBlock", "sumOfFlows", "docCount"]
     };
 
-    initHeatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "docCount"}, {axisRange: {x: [0, 150], y: [0, 255]}, cidr: "192.168.0.0/22", tooltipText: tooltip, scaleType: SCALE_TYPES.linear, parentElement: "chart"});
+    var x = new D3heatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "sumOfFlows"}, {axisRange: {x: [0, 150], y: [0, 150]}, cellRange: {x: [0, 150], y: [0, 150]}, tooltipText: tooltip, scaleType: SCALE_TYPES.log, parentElement: "chart1"});
+    var y = new D3heatmap(DATA, {xColumn: "fourthBlock", yColumn: "thirdBlock", value: "docCount"}, {axisRange: {x: [0, 150], y: [0, 150]}, cellRange: {x: [0, 150], y: [0, 150]}, tooltipText: tooltip, scaleType: SCALE_TYPES.linear, parentElement: "chart2"});
 </script>
 
 </body>
