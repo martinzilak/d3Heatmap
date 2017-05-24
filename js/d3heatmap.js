@@ -20,6 +20,7 @@ const DEFAULT_VALUES = {
         format: "",
         values: []
     },
+    sliderValues: [0, 100],
     axisRange: { //only works if the axis labels are whole numbers, use with precaution
         x: [-Infinity, Infinity],
         y: [-Infinity, Infinity]
@@ -42,7 +43,7 @@ const DEFAULT_STYLE = {
             "stroke-width": "1px"
         },
         text: {
-            "font-size": "10pt",
+            "font-size": "14pt",
             "fill": "#000"
         }
     },
@@ -116,9 +117,9 @@ class D3heatmap {
         this.showGrid = parameters.showGrid;
         this.legendSteps = parameters.legendSteps;
         this.cellSize = parameters.cellSize;
-        this.legendElementSize = {width: this.cellSize * 10, height: this.cellSize * 3};
+        this.legendElementSize = {width: this.cellSize * 12.58, height: this.cellSize * 4};
         this.legendOffset = this.cellSize * 2.5;
-        this.legendTextOffset = this.legendOffset * 2 + this.legendElementSize.height;
+        this.legendTextOffset = this.legendOffset * 2.4 + this.legendElementSize.height;
         this.sortOrder = {xAxis: -1, yAxis: -1};
         this.colors = {min: addHash(parameters.colorMinimum), max: addHash(parameters.colorMaximum)};
         this.scaleType = parameters.scaleType;
@@ -127,6 +128,7 @@ class D3heatmap {
         this.cellRange = {x: parameters.cellRange.x, y: parameters.cellRange.y};
         this.cidr = parameters.cidr;
         this.zoom = d3.behavior.zoom();
+        this.sliderValues = parameters.sliderValues;
 
         this.margin.bottom += (this.showLegend ? (this.legendElementSize.height + this.legendOffset + this.cellSize) : 0);
 
@@ -136,7 +138,7 @@ class D3heatmap {
 
         this.data = this.loadData(json);
 
-        this.draw(this.data, this.parentElement);
+        this.draw(this.data, this.parentElement, false);
     }
 
     loadData(json) {
@@ -144,8 +146,14 @@ class D3heatmap {
     }
 
     redraw() {
-        d3.select("#graphContainer").remove();
-        draw(this.data, this.parentElement);
+        //d3.select("#graphContainer").remove();
+        d3.select(this.parentElement).html(null);
+        this.draw(this.data, this.parentElement, true);
+    }
+
+    setData(data) {
+        this.data = data;
+        this.redraw();
     }
 
     getOtherFields() {
@@ -173,7 +181,7 @@ class D3heatmap {
         this.redraw();
     }
 
-    draw(data, parentElement) {
+    draw(data, parentElement, isRedraw) {
         var scope = this;
 
         if (!(this.cidr.length === 0)) {
@@ -218,7 +226,7 @@ class D3heatmap {
 
         var tooltip = d3.select("body")
                 .append("div")
-                .attr("id", "tooltip")
+                .attr("id", scope.getTooltipId())
                 .style(scope.style.TOOLTIP)
                 .append("p")
                 .append("span")
@@ -241,6 +249,8 @@ class D3heatmap {
                 .attr("width", scope.width + scope.margin.left + scope.margin.right)
                 .attr("height", scope.height + scope.margin.top + scope.margin.bottom)
             ;
+
+
 
         var graph = svg
                 .append("g")
@@ -305,7 +315,7 @@ class D3heatmap {
             })
             .style("text-anchor", "end")
             .attr("class", function (d, i) {
-                return "yAxisLabel y" + i;
+                return "yAxisLabel y-" + scope.getGraphName() + "-" + i;
             })
             .on("mouseover", function (d) {
                 d3.select(this).style(scope.style.AXIS.textHover);
@@ -349,7 +359,7 @@ class D3heatmap {
             })
             .style("text-anchor", "left")
             .attr("class", function (d, i) {
-                return "xAxisLabel x" + i;
+                return "xAxisLabel x-" + scope.getGraphName() + "-" + i;
             })
             .on("mouseover", function (d) {
                 d3.select(this).style(scope.style.AXIS.textHover);
@@ -380,6 +390,8 @@ class D3heatmap {
             .selectAll(".cell")
             .data(data.filter(function (x) {
                 return scope.isInRange(x);
+            }).filter(function (y) {
+                return (+y[scope.value]).between((+scope.sliderValues[0])*0.01*colorScale.domain()[1], (+scope.sliderValues[1])*0.01*colorScale.domain()[1], true);
             }))
             .enter()
             .append("rect")
@@ -399,34 +411,32 @@ class D3heatmap {
             })
             .on("mouseover", function (d) {
                 //highlight text
-                d3.select(".x" + originalXAxisLabelStrings.indexOf("" + d[scope.xColumn])).style(scope.style.AXIS.textHighlight);
-                d3.select(".y" + originalYAxisLabelStrings.indexOf("" + d[scope.yColumn])).style(scope.style.AXIS.textHighlight);
+                d3.select(".x-" + scope.getGraphName() + "-" + originalXAxisLabelStrings.indexOf("" + d[scope.xColumn])).style(scope.style.AXIS.textHighlight);
+                d3.select(".y-" + scope.getGraphName() + "-" + originalYAxisLabelStrings.indexOf("" + d[scope.yColumn])).style(scope.style.AXIS.textHighlight);
 
-
-                //TODO: make dynamic
                 //highlight cell
-                d3.select("#highlight")
+                d3.select("#" + scope.getHighlightId())
                     .attr("transform", "translate(" + (scope.xAxisLabelStrings.indexOf("" + d[scope.xColumn]) * scope.cellSize) + ", " + (scope.yAxisLabelStrings.indexOf("" + d[scope.yColumn]) * scope.cellSize) + ")")
                     .style("display", "initial")
                 ;
 
                 //update the tooltip position and value
-                d3.select("#tooltip")
+                d3.select("#" + scope.getTooltipId())
                     .style("left", (d3.event.pageX + 10) + "px")
                     .style("top", (d3.event.pageY - 10) + "px")
                     .select("#value")
                     .text(scope.generateTooltip(d));
 
                 //show the tooltip
-                d3.select("#tooltip").style("display", "initial");
+                d3.select("#" + scope.getTooltipId()).style("display", "initial");
             })
             .on("mouseout", function () {
                 d3.selectAll(".yAxisLabel").style(scope.style.AXIS.text);
                 d3.selectAll(".xAxisLabel").style(scope.style.AXIS.text);
 
-                d3.select("#tooltip").style("display", "none");
+                d3.select("#" + scope.getTooltipId()).style("display", "none");
 
-                d3.select("#highlight").style("display", "none");
+                d3.select("#" + scope.getHighlightId()).style("display", "none");
             })
         ;
 
@@ -486,7 +496,7 @@ class D3heatmap {
 
         //cell highlight element
         var highlight = heatmap.append("g")
-                .attr("id", "highlight")
+                .attr("id", scope.getHighlightId())
                 .style(scope.style.HIGHLIGHT)
             ;
 
@@ -570,11 +580,15 @@ class D3heatmap {
             yAxis.attr("transform", "translate(-6, " + scope.cellSize * scope.zoom.scale() + ")");
             xAxis.attr("transform", "translate(" + scope.cellSize * scope.zoom.scale() + ", -6) rotate (-90)");
 
-            // d3.select(".grid").style("stroke-width", 1/zoom.scale() + "px");
+            // d3.select("#grid").style("stroke-width", 1/scope.zoom.scale() + "px");
             // d3.select(".highlight").style("stroke-width", 1/zoom.scale() + "px");
         });
         svg.call(scope.zoom);
-        
+
+        if (isRedraw) {
+            scope.zoom.event(svg);
+        }
+
         //sort
         var sortByLabel = function(isYAxis, index, sortOrder) {
             var t = svg.transition().duration(0);
@@ -675,7 +689,7 @@ class D3heatmap {
         var s = "";
 
         if (this.tooltipText.values.length <= 0) {
-            var headers = arrayDifference(Object.getOwnPropertyNames(data[0]), [this.xColumn, this.yColumn, this.value]);
+            var headers = arrayDifference(Object.getOwnPropertyNames(this.data[0]), [this.xColumn, this.yColumn, this.value]);
             s += format("x: {0}, y: {1}\n{2}: {3}", d[this.xColumn], d[this.yColumn], this.value, d[this.value]);
 
             for (var i = 0; i < headers.length; i++) {
@@ -692,11 +706,23 @@ class D3heatmap {
         return s;
     }
 
-    isInRange(x) {
+    isInRange(x, domain) {
         return (+x[this.xColumn]).between(this.axisRange.x[0], this.axisRange.x[1], true) &&
             (+x[this.xColumn]).between(this.cellRange.x[0], this.cellRange.x[1], true) &&
             (+x[this.yColumn]).between(this.axisRange.y[0], this.axisRange.y[1], true) &&
             (+x[this.yColumn]).between(this.cellRange.y[0], this.cellRange.y[1], true);
+    }
+
+    getGraphName() {
+        return this.parentElement.slice("#chart-".length);
+    }
+
+    getHighlightId() {
+        return "highlight-" + this.getGraphName();
+    }
+
+    getTooltipId() {
+        return "tooltip-" + this.getGraphName();
     }
 }
 
